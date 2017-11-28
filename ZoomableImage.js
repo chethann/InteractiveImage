@@ -1,49 +1,11 @@
 import React, {Component, PropTypes} from 'react'
 import { Animated, ScrollView, StyleSheet, Dimensions, View, PanResponder, Image, TouchableWithoutFeedback, TouchableHighlight, Modal, Text } from 'react-native'
-import Popup from './Popup'
+import PulsingCircle from './PulsingCircle'
 
-const annotations = [
-	{
-		x1: 20,
-		x2: 30,
-		y1: 20,
-		y2: 30,
-		description: 'This uses blue cloth This uses blue cloth This uses blue cloth This uses blue cloth This uses blue cloth This uses blue cloth',
-	},
-	{
-		x1: 60,
-		x2: 70,
-		y1: 10,
-		y2: 20,
-		description: 'This is a sample description',
-	},
-	{
-		x1: 10,
-		x2: 20,
-		y1: 50,
-		y2: 60,
-		description: 'Annotated detail',
-	},
-	{
-		x1: 50,
-		x2: 60,
-		y1: 50,
-		y2: 60,
-		description: 'Annotated detail blue shoe!',
-	},
-	{
-		x1: 50,
-		x2: 55,
-		y1: 70,
-		y2: 80,
-		description: 'Annotated detail blue shoe!',
-	},
-]
-
-const MAX_ZOOM = 4
-const ANIMATION_DURATION = 500
+const MAX_ZOOM = 2.5
+const ANIMATION_DURATION = 400
 const { height, width } = Dimensions.get('window')
-
+const POPUP_COLOR = 'white'
 
 const styles = StyleSheet.create({
 	container: {
@@ -51,21 +13,32 @@ const styles = StyleSheet.create({
 	},
 	overlay: {
 		flexGrow: 1,
-		backgroundColor: 'rgb(0,0,0)',
 	},
 
 	popupContainer: {
-		width: width / 1.7,
-		backgroundColor: '#ff99ee',
+		marginHorizontal: 16,
+		backgroundColor: POPUP_COLOR,
 		padding: 8,
 		borderRadius: 3,
+		width: width - 40,
 	},
 
 	popupText: {
 		fontSize: 17,
-		color: 'white',
-	}
+	},
 
+	triangle: {
+		width: 0,
+		height: 0,
+		backgroundColor: 'transparent',
+		borderStyle: 'solid',
+		borderLeftWidth: 6.5,
+		borderRightWidth: 6.5,
+		borderBottomWidth: 10,
+		borderLeftColor: 'transparent',
+		borderRightColor: 'transparent',
+		borderBottomColor: POPUP_COLOR,
+	},
 })
 
 class ZoomableImage extends Component {
@@ -108,10 +81,6 @@ class ZoomableImage extends Component {
 	componentWillMount() {
 		this.state.scale.addListener(this.initValues)
 		this.initPanResponder()
-	}
-
-	componentWillUnMount() {
-
 	}
 
 	initValues ({ value }) {
@@ -222,7 +191,7 @@ class ZoomableImage extends Component {
 
 	getAnnotation (x, y) {
 		let match
-		annotations.every(annotation => {
+		this.props.annotations && this.props.annotations.every(annotation => {
 			const { x1, x2, y1, y2  } = this.normalizeAnnotation(annotation)
 			if ( x > x1 && x < x2 && y > y1 && y < y2  )
 				match = annotation
@@ -242,15 +211,13 @@ class ZoomableImage extends Component {
 			this.setState({
 				popupY: pageY,
 			})
-		}
-		if (!this.state.inZoomedState) {
 			this.locationX = locationX
 			this.locationY = locationY
 			this.pageX = pageX
 			this.pageY = pageY
 			this.zoomUpImage()
 		}
-		else
+		else if (this.state.inZoomedState)
 			this.zoomDownImage()
 	}
 
@@ -290,29 +257,24 @@ class ZoomableImage extends Component {
 	renderTouchpoints () {
 		if (this.state.isZooming || this.state.inZoomedState)
 			return null
-		return annotations.map(annotation => {
+		return this.props.annotations && this.props.annotations.map(annotation => {
 			const style = {
 				position: 'absolute',
 				left: ((annotation.x2 + annotation.x1) / 200) * this.props.imageWidth,
 				top: ((annotation.y2 + annotation.y1) / 200) * this.props.imageHeight,
 			}
 			return (<View pointerEvents='none' style= {style}>
-			<Image
-				style={ { height: 20, width: 20, } }
-				source={ require('./click.png') }
-				pointerEvents='none'
-			/>
+				<PulsingCircle pulse />
 			</View>)
 		})
 	}
 
 	popupContent () {
-		const alignStyle = {
-			left: this.pageX > width ? width * 0.15 : width * 0.3,
-			right: 0,
-		}
-		return (<View ref={ this.popupContentRef }  style={ [ styles.popupContainer, {position: 'absolute', top: this.pageY }, alignStyle ] }>
-			<Text style= { styles.popupText }>{ this.currentAnnotation && this.currentAnnotation.description }</Text>
+		return (<View style={ { position: 'absolute', top: (this.props.imageHeight / 2) - this.locationY + this.pageY } }>
+			<View style={ [ styles.triangle, { marginLeft: width / 2 - 20} ] }/>
+			<View ref={ this.popupContentRef }  style={ [ styles.popupContainer, this.props.popOverStyles ] }>
+				<Text style= { styles.popupText }>{ this.currentAnnotation && this.currentAnnotation.description }</Text>
+			</View>
 		</View>)
 	}
 
@@ -328,6 +290,7 @@ class ZoomableImage extends Component {
 					<TouchableHighlight
 						style={ styles.overlay }
 						onPress={ this.closeModal }
+						underlayColor='transparent'
 					>
 						<View />
 					</TouchableHighlight>
